@@ -49,28 +49,48 @@ public class YogiService {
 
     @Transactional
     public YogiDTO createYogi(YogiCreateDTO yogiCreateDTO) {
+        // 1. Validate input and handle potential errors early
+        validateYogiInput(yogiCreateDTO);
+
+        // 2. Map DTO to entity
         Yogi yogi = yogiMapper.toEntity(yogiCreateDTO);
         yogi.setStatus(Status.ACTIVE);
-        checkYogiIdAlreadyExist(yogiCreateDTO.getYogiId(), null);
-        checkYogiPassportIDAlreadyExist(yogiCreateDTO.getPassportID(), null);
         clearNullReferences(yogi, yogiCreateDTO);
 
-        if (isLocalYogi(yogiCreateDTO)) {
-            MasterYogiNrcDTO masterYogiNrcDto = buildNrcDto(yogiCreateDTO);
-            User user = yogi.getLoginUser();
-            UserCreateDTO userCreateDTO = userMapper.toCreateDTO(user);
-            UserDTO userDTO = this.userService.createUser(userCreateDTO);
-            yogi.setLoginUser(userRepository.findById(userDTO.getId()).orElseThrow());
-            yogi = yogiRepository.save(yogi);
+        // 3. Handle User creation within its own transaction
+        User user = yogi.getLoginUser();
+        UserCreateDTO userCreateDTO = userMapper.toCreateDTO(user);
+        UserDTO userDTO = userService.createUser(userCreateDTO); // Assume this is transactional
+        yogi.setLoginUser(userRepository.findById(userDTO.getId()).orElseThrow());  //Should not throw an exception, we just created it.
 
-            masterYogiNrcDto.setYogiId(yogi.getId());
-            YogiNrcCreateDTO yogiNrcCreateDTO = yogiNrcMapper.toDto(masterYogiNrcDto);
-            YogiNrcDTO yogiNrcDTO = yogiNrcService.create(yogiNrcCreateDTO);
-            yogi.setNrc(yogiNrcDTO.getNrc());
+        // 4. Save Yogi (initial save)
+        yogi = yogiRepository.save(yogi);
+
+        // 5. Handle NRC creation if applicable
+        if (isLocalYogi(yogiCreateDTO)) {
+            createYogiNrc(yogi, yogiCreateDTO); //Extract this method
         }
 
-        yogi = yogiRepository.save(yogi);
+        // 6. Save Yogi (final save, after NRC) - redundant if NRC creation always saves yogi.
+        //yogi = yogiRepository.save(yogi); // Remove this line
+
         return yogiMapper.toDto(yogi);
+    }
+
+    private void validateYogiInput(YogiCreateDTO yogiCreateDTO) {
+        checkYogiIdAlreadyExist(yogiCreateDTO.getYogiId(), null);
+        checkYogiPassportIDAlreadyExist(yogiCreateDTO.getPassportID(), null);
+        //Consider adding a check for the user.
+    }
+
+
+    private void createYogiNrc(Yogi yogi, YogiCreateDTO yogiCreateDTO) {
+        MasterYogiNrcDTO masterYogiNrcDto = buildNrcDto(yogiCreateDTO);
+        masterYogiNrcDto.setYogiId(yogi.getId());
+        YogiNrcCreateDTO yogiNrcCreateDTO = yogiNrcMapper.toDto(masterYogiNrcDto);
+        YogiNrcDTO yogiNrcDTO = yogiNrcService.create(yogiNrcCreateDTO); //Assume this is transactional.
+        yogi.setNrc(yogiNrcDTO.getNrc());
+        yogiRepository.save(yogi); // Save here, within the NRC transaction.
     }
 
 

@@ -31,7 +31,7 @@ public class YogiYogaClass extends MasterData{
     private YogaClass yogaClass;
 
     @ManyToOne
-    @JoinColumn(name = "yogi_package_id")
+    @JoinColumn(name = "yogi_package_id", nullable = true)
     private YogiPackage yogiPackage;
 
     @ManyToOne

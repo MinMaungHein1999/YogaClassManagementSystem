@@ -1,12 +1,14 @@
 package com.yogiBooking.common.service;
 
+import com.yogiBooking.common.converter.JoinedStatusConverter;
+import com.yogiBooking.common.converter.PaymentStatusConverter;
+import com.yogiBooking.common.converter.RatingConverter;
+import com.yogiBooking.common.converter.StatusConverter;
 import com.yogiBooking.common.dto.yogi_yoga_class.BatchYogiEnrollDTO;
 import com.yogiBooking.common.dto.yogi_yoga_class.YogiYogaClassCreateDTO;
 import com.yogiBooking.common.dto.yogi_yoga_class.YogiYogaClassResponseDTO;
 import com.yogiBooking.common.entity.*;
-import com.yogiBooking.common.entity.constants.JoinedStatus;
-import com.yogiBooking.common.entity.constants.PackageStatus;
-import com.yogiBooking.common.entity.constants.PaymentStatus;
+import com.yogiBooking.common.entity.constants.*;
 import com.yogiBooking.common.exception.BatchEnrollmentFailedException;
 import com.yogiBooking.common.exception.ResourceAlreadyExistsException;
 import com.yogiBooking.common.exception.ResourceNotFoundException;
@@ -17,11 +19,13 @@ import com.yogiBooking.common.repository.YogiRepository;
 import com.yogiBooking.common.repository.YogiYogaClassRepository;
 import com.yogiBooking.common.service.yogaClass.LockService;
 import com.yogiBooking.common.service.yogaClass.YogaClassBookingCacheService;
-import jakarta.persistence.EntityManager;
+import jakarta.persistence.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -57,7 +61,6 @@ public class BatchYogiEnrollService {
         this.yogaClassBookingCacheService = yogaClassBookingCacheService;
     }
 
-    @Transactional
     public BatchYogiEnrollDTO enrollYogisInBatch(BatchYogiEnrollDTO batchRequest) {
         Long classId = batchRequest.getYogaClassId();
         YogaClass yogaClass = findYogaClassOrThrow(classId);
@@ -86,10 +89,10 @@ public class BatchYogiEnrollService {
 
                     this.createYogiYogaClass(yogiYogaClassCreateDTO);
                     enrolledYogiIds.add(yogiId);
-                } catch (Exception e) {
+                }  catch (BatchEnrollmentFailedException | EnrollmentException e) {
                     errorMessages.add("Yogi %d could not enroll: %s".formatted(yogiId, e.getMessage()));
                 }
-            }
+        }
         } finally {
             lockService.unlock(lockKey);
         }
@@ -124,8 +127,32 @@ public class BatchYogiEnrollService {
         logger.info("Yogi {} added to waitlist for class {}", yogiId, classId);
     }
 
-    private YogiYogaClass cancelEnrollment(YogiYogaClassCreateDTO  createDTO) {
-        YogiYogaClass yogiYogaClass = yogiYogaClassRepository.save(yogiYogaClassMapper.toEntity(createDTO));
+    private YogiYogaClass cancelEnrollment(YogiYogaClassCreateDTO createDTO) {
+        Optional<YogiYogaClass> existingOpt = yogiYogaClassRepository
+                .findByYogiIdAndYogaClassId(createDTO.getYogiId(), createDTO.getYogaClassId());
+
+        YogiYogaClass entity;
+
+        if (existingOpt.isPresent()) {
+            entity = existingOpt.get();
+            entity.setJoinedStatus(createDTO.getJoinedStatus());
+            entity.setPaymentStatus(createDTO.getPaymentStatus());
+            entity.setRemark(createDTO.getRemark());
+            entity.setRating(createDTO.getRating());
+            entity.setJoinedDate(createDTO.getJoinedDate());
+        } else {
+            entity = yogiYogaClassMapper.toEntity(createDTO);
+
+            if (createDTO.getYogiPackageId() != null) {
+                YogiPackage packageEntity = yogiPackageRepository.findById(createDTO.getYogiPackageId())
+                        .orElseThrow(() -> new ResourceNotFoundException("YogiPackage not found with ID: " + createDTO.getYogiPackageId()));
+                entity.setYogiPackage(packageEntity);
+            }else{
+                entity.setYogiPackage(null);
+            }
+        }
+
+        YogiYogaClass yogiYogaClass = yogiYogaClassRepository.save(entity);
         return yogiYogaClass;
     }
 
@@ -160,7 +187,9 @@ public class BatchYogiEnrollService {
 
         // Persist enrollment
         YogiYogaClass yogiYogaClass = yogiYogaClassMapper.toEntity(createDTO);
+        yogiYogaClass.setYogiPackage(yogiPackage);
         yogiYogaClass.setYogi(yogi);
+        yogiYogaClass.setYogiPackage(yogiPackage);
         YogiYogaClass saved = yogiYogaClassRepository.save(yogiYogaClass);
 
         // Update booking count if actively enrolled
@@ -207,7 +236,7 @@ public class BatchYogiEnrollService {
         if (packages.isEmpty()) {
             String reason = "No active package for service category '%s' in country '%s'."
                     .formatted(category.getName(), country.getName());
-            markEnrollmentAsCancelled(createDTO, reason, PaymentStatus.TRANSACTION_CANCLE);
+            markEnrollmentAsCancelled(createDTO, reason, PaymentStatus.TRANSACTION_CANCLE, packages.getFirst());
             throw new EnrollmentException(reason);
         }
 
@@ -216,10 +245,10 @@ public class BatchYogiEnrollService {
                 .findActiveByCountryIdAndYogiIdAndServiceCategoryIdAndPackageStatus(
                         country.getId(), yogi.getId(), category.getId(), PackageStatus.ACTIVE);
 
-        if (packages.isEmpty()) {
+        if (packages != null || packages.isEmpty()) {
             String reason = "Your package for '%s' is not valid for country '%s'."
                     .formatted(category.getName(), country.getName());
-            markEnrollmentAsCancelled(createDTO, reason, PaymentStatus.TRANSACTION_CANCLE);
+            markEnrollmentAsCancelled(createDTO, reason, PaymentStatus.TRANSACTION_CANCLE, null);
             throw new EnrollmentException(reason);
         }
 
@@ -229,15 +258,20 @@ public class BatchYogiEnrollService {
         if (yogiPackage.getCredit() < yogaClass.getFeeOfCredit()) {
             String reason = "Insufficient credit: Package '%s' has %.2f credits, class requires %.2f credits."
                     .formatted(category.getName(), yogiPackage.getCredit(), yogaClass.getFeeOfCredit());
-            markEnrollmentAsCancelled(createDTO, reason, PaymentStatus.INSUFFICENT);
+            markEnrollmentAsCancelled(createDTO, reason, PaymentStatus.INSUFFICENT, packages.getFirst());
             throw new EnrollmentException(reason);
         }
 
         return yogiPackage;
     }
 
-    private void markEnrollmentAsCancelled(YogiYogaClassCreateDTO dto, String reason, PaymentStatus status) {
+    private void markEnrollmentAsCancelled(YogiYogaClassCreateDTO dto, String reason, PaymentStatus status, YogiPackage yogiPackage) {
         dto.setRemark(reason);
+        if(yogiPackage != null){
+            dto.setYogiPackageId(yogiPackage.getId());
+        }else{
+            dto.setYogiPackageId(null);
+        }
         dto.setJoinedStatus(JoinedStatus.CANCEL);
         dto.setPaymentStatus(status);
         cancelEnrollment(dto);

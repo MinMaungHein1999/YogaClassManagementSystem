@@ -11,6 +11,7 @@ import java.time.LocalDate;
 @Data
 public class MasterYogiYogaClassDTO {
     private Long yogaClassId;
+    private Long yogiPackageId;
     private Status status = Status.ACTIVE;
     private JoinedStatus joinedStatus;
     private PaymentStatus paymentStatus;

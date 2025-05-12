@@ -61,7 +61,6 @@ public class ClassBookingService {
                 .toList();
     }
 
-    @Transactional
     public BatchUpdateEnrollDTO enrollUpdateYogisInBatch(BatchUpdateEnrollDTO batchUpdateEnrollDTO) {
         Long classId = batchUpdateEnrollDTO.getYogaClassId();
         String lockKey = "lock:yoga_class:" + classId;

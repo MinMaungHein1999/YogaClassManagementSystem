@@ -13,10 +13,18 @@ public interface YogiYogaClassMapper {
     YogiYogaClassMapper INSTANCE = Mappers.getMapper(YogiYogaClassMapper.class);
 
     @Mappings({
+            @Mapping(source = "yogiPackageId", target = "yogiPackage.id"),
             @Mapping(source = "yogaClassId", target = "yogaClass.id"),
             @Mapping(source = "yogiId", target = "yogi.id"),
     })
     YogiYogaClass toEntity(YogiYogaClassCreateDTO yogiYogaClassCreateDTO);
+
+    @Mappings({
+            @Mapping(source = "yogiPackageId", target = "yogiPackage.id"),
+            @Mapping(source = "yogaClassId", target = "yogaClass.id"),
+            @Mapping(source = "yogiId", target = "yogi.id"),
+    })
+    YogiYogaClass toEntity(YogiYogaClassUpdateDTO yogiYogaClassCreateDTO);
 
     @InheritConfiguration(name = "toEntity")
     @Mappings({

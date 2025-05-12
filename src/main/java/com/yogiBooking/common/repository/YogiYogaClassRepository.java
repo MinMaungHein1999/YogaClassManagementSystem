@@ -68,4 +68,5 @@ public interface YogiYogaClassRepository extends JpaRepository<YogiYogaClass, Lo
     """)
     List<CountProjection> countByRating(@Param("classId") Long classId);
 
+    Optional<YogiYogaClass> findByYogiIdAndYogaClassId(Long yogiId, Long yogaClassId);
 }

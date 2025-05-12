@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Document</title>
+</head>
+<body>
+<label for="key">Key</label><input id="key" type="text"/>
+<div id="filePreview"></div>
+<button onclick="previewFile()">Preview File</button>
+<script>
+    function previewFile() {
+        let key = document.getElementById('key').value;
+
+        // Make a GET request to retrieve the file based on the key
+        fetch(`http://localhost:9090/api/v1/storage/retrieve/${key}`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('File not found');
+                }
+
+                // Extract filename from Content-Disposition header
+                const contentDisposition = response.headers.get('Content-Disposition');
+                const matches = /filename="([^"]+)"/.exec(contentDisposition);
+                const filename = matches && matches[1] ? matches[1] : key; // Default to key if filename not found
+
+                return response.blob().then(blob => ({
+                    blob: blob,
+                    filename: filename
+                }));
+            })
+            .then(({ blob, filename }) => {
+                // Create an object URL for the Blob
+                const fileURL = URL.createObjectURL(blob);
+
+                // Display the file preview based on the content type
+                const fileExtension = filename.split('.').pop().toLowerCase();
+                const filePreviewContainer = document.getElementById('filePreview');
+
+                if (fileExtension === 'pdf') {
+                    // For PDF files, embed using an iframe
+                    filePreviewContainer.innerHTML = `<iframe src="${fileURL}" width="100%" height="600px"></iframe>`;
+                } else if (['jpg', 'jpeg', 'png'].includes(fileExtension)) {
+                    // For image files, display as an image
+                    filePreviewContainer.innerHTML = `<img src="${fileURL}" width="100%" height="auto"/>`;
+                } else if (fileExtension === 'txt') {
+                    // For text files, display the content inside a pre tag
+                    const reader = new FileReader();
+                    reader.onload = function(event) {
+                        filePreviewContainer.innerHTML = `<pre>${event.target.result}</pre>`;
+                    };
+                    reader.readAsText(blob);
+                } else {
+                    // For unsupported file types, create a download link
+                    // filePreviewContainer.innerHTML = `<a href="${fileURL}" download="${filename}">Download ${filename}</a>`;
+                }
+
+                // Create a download link with the correct filename
+                const downloadLink = document.createElement('a');
+                downloadLink.href = fileURL;
+                downloadLink.download = filename; // Set the filename for download
+                downloadLink.innerText = `Download ${filename}`;
+                filePreviewContainer.appendChild(downloadLink);
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error loading file');
+            });
+    }
+</script>
+</body>
+</html>

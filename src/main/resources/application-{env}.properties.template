@@ -1,0 +1,52 @@
+###########################################################################
+#               DON'T RENAME THIS FILE - CREATE NEW ONE                   #
+###########################################################################
+
+# Server Configuration
+server.port=8080
+
+# Datasource Configuration
+spring.datasource.url=jdbc:postgresql://localhost:5432/dev_yoga_class_booking_sys_db
+spring.datasource.username=postgres
+spring.datasource.password=yoga_class
+spring.jpa.hibernate.ddl-auto=update
+spring.jpa.show-sql=true
+spring.datasource.driver-class-name=org.postgresql.Driver
+spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect
+spring.data.web.pageable.default-page-size=20
+
+# API Configuration
+api.prefix=/api/v1
+
+# Storage Configuration
+storage.type=${environment}
+local.storage.folder.name=Documents/${spring.application.name}/storage
+
+# Multipart File Configuration
+spring.servlet.multipart.max-file-size=5MB
+
+# Default User Configuration
+default.user.email=admin@yogibooking.com
+default.user.password=admin
+default.user.role=Admin
+
+# Mail Service Configuration
+spring.mail.host=smtp.gmail.com
+spring.mail.port=587
+spring.mail.username=yogaclass@exampl.com
+spring.mail.password=password
+spring.mail.properties.mail.smtp.auth=true
+spring.mail.properties.mail.smtp.starttls.enable=true
+
+# Security Configuration
+application.security.allow-origins=*
+
+# JWT Configuration
+application.security.jwt.secret-key=AddYogaBookingYogiManagementSystemJwtSecretKey
+## 1 hour (60 * 60 * 1000 ms)
+application.security.jwt.expiration=3600000
+## 1 day (24 * 60 * 60 * 1000 ms)
+application.security.jwt.refresh-token.expiration=86400000
+
+# Cookie Configuration
+cookie.secure=false

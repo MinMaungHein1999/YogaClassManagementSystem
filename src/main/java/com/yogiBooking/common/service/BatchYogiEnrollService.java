@@ -124,8 +124,9 @@ public class BatchYogiEnrollService {
         logger.info("Yogi {} added to waitlist for class {}", yogiId, classId);
     }
 
-    private void cancelEnrollment(YogiYogaClassCreateDTO  createDTO) {
-        yogiYogaClassRepository.save(yogiYogaClassMapper.toEntity(createDTO));
+    private YogiYogaClass cancelEnrollment(YogiYogaClassCreateDTO  createDTO) {
+        YogiYogaClass yogiYogaClass = yogiYogaClassRepository.save(yogiYogaClassMapper.toEntity(createDTO));
+        return yogiYogaClass;
     }
 
     public YogiYogaClassResponseDTO createYogiYogaClass(YogiYogaClassCreateDTO createDTO) {

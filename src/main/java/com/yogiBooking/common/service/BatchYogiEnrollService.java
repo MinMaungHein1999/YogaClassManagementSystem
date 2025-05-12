@@ -127,7 +127,8 @@ public class BatchYogiEnrollService {
         logger.info("Yogi {} added to waitlist for class {}", yogiId, classId);
     }
 
-    private YogiYogaClass cancelEnrollment(YogiYogaClassCreateDTO createDTO) {
+    @Transactional
+    public YogiYogaClass cancelEnrollment(YogiYogaClassCreateDTO createDTO) {
         Optional<YogiYogaClass> existingOpt = yogiYogaClassRepository
                 .findByYogiIdAndYogaClassId(createDTO.getYogiId(), createDTO.getYogaClassId());
 
@@ -147,14 +148,14 @@ public class BatchYogiEnrollService {
                 YogiPackage packageEntity = yogiPackageRepository.findById(createDTO.getYogiPackageId())
                         .orElseThrow(() -> new ResourceNotFoundException("YogiPackage not found with ID: " + createDTO.getYogiPackageId()));
                 entity.setYogiPackage(packageEntity);
-            }else{
+            } else {
                 entity.setYogiPackage(null);
             }
         }
 
-        YogiYogaClass yogiYogaClass = yogiYogaClassRepository.save(entity);
-        return yogiYogaClass;
+        return yogiYogaClassRepository.saveAndFlush(entity);
     }
+
 
     public YogiYogaClassResponseDTO createYogiYogaClass(YogiYogaClassCreateDTO createDTO) {
         Long yogiId = createDTO.getYogiId();

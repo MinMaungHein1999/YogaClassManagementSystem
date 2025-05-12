@@ -45,6 +45,12 @@ public class GlobalExceptionHandler {
         return buildErrorResponse(HttpStatus.UNAUTHORIZED, ex.getMessage());
     }
 
+    @ExceptionHandler(BatchEnrollmentFailedException.class)
+    public ResponseEntity<Map<String, Object>> handleBatchEnrollmentFailedException(BatchEnrollmentFailedException ex) {
+        log.error("Batch Enrollment Failed: {}", ex.getMessage());
+        return buildErrorResponse(HttpStatus.BAD_REQUEST, ex.getMessage());
+    }
+
     @ExceptionHandler(VerificationEmailFailedException.class)
     public ResponseEntity<Map<String, Object>> handleVerificationEmailFailedException(VerificationEmailFailedException ex) {
         log.error("Verification email failed: {}", ex.getMessage());

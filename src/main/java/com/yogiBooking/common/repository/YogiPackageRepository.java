@@ -32,4 +32,13 @@ public interface YogiPackageRepository extends JpaRepository<YogiPackage, Long>,
             @Param("yogiId") Long yogiId,
             @Param("serviceCategoryId") Long serviceCategoryId,
             @Param("activeStatus") PackageStatus activeStatus);
+
+    @Query("SELECT yp FROM YogiPackage yp " +
+            "WHERE yp.yogi.id = :yogiId " +
+            "AND yp.serviceCategory.id = :serviceCategoryId " +
+            "AND yp.packageStatus = :activeStatus ")
+    List<YogiPackage> findActiveByYogiIdAndServiceCategoryIdAndPackageStatus(
+            @Param("yogiId") Long yogiId,
+            @Param("serviceCategoryId") Long serviceCategoryId,
+            @Param("activeStatus") PackageStatus activeStatus);
 }

@@ -198,33 +198,50 @@ public class BatchYogiEnrollService {
         Country country = yogaClass.getCountry();
         ServiceCategory category = yogaClass.getServiceCategory();
 
-        List<YogiPackage> packages = yogiPackageRepository.findActiveByCountryIdAndYogiIdAndServiceCategoryIdAndPackageStatus(
-                country.getId(), yogi.getId(), category.getId(), PackageStatus.ACTIVE);
+        // Step 1: Check for active packages in general (by service category)
+        List<YogiPackage> packages = yogiPackageRepository
+                .findActiveByYogiIdAndServiceCategoryIdAndPackageStatus(
+                        yogi.getId(), category.getId(), PackageStatus.ACTIVE);
 
         if (packages.isEmpty()) {
-            String reason = "No active package for '%s' (%s) in %s."
-                    .formatted(category.getName(), country.getName(), country.getName());
-            createDTO.setRemark(reason);
-            createDTO.setJoinedStatus(JoinedStatus.CANCEL);
-            createDTO.setPaymentStatus(PaymentStatus.TRANSACTION_CANCLE);
-            cancelEnrollment(createDTO);
+            String reason = "No active package for service category '%s' in country '%s'."
+                    .formatted(category.getName(), country.getName());
+            markEnrollmentAsCancelled(createDTO, reason, PaymentStatus.TRANSACTION_CANCLE);
+            throw new EnrollmentException(reason);
+        }
+
+        // Step 2: Filter for country-specific packages
+        packages = yogiPackageRepository
+                .findActiveByCountryIdAndYogiIdAndServiceCategoryIdAndPackageStatus(
+                        country.getId(), yogi.getId(), category.getId(), PackageStatus.ACTIVE);
+
+        if (packages.isEmpty()) {
+            String reason = "Your package for '%s' is not valid for country '%s'."
+                    .formatted(category.getName(), country.getName());
+            markEnrollmentAsCancelled(createDTO, reason, PaymentStatus.TRANSACTION_CANCLE);
             throw new EnrollmentException(reason);
         }
 
         YogiPackage yogiPackage = packages.getFirst();
 
+        // Step 3: Check for sufficient credit
         if (yogiPackage.getCredit() < yogaClass.getFeeOfCredit()) {
-            String reason = "Insufficient credit: Package '%s' has only %.2f credits, but class requires %.2f credits."
-                            .formatted(category.getName(), yogiPackage.getCredit(), yogaClass.getFeeOfCredit());
-            createDTO.setRemark(reason);
-            createDTO.setJoinedStatus(JoinedStatus.CANCEL);
-            createDTO.setPaymentStatus(PaymentStatus.INSUFFICENT);
-            cancelEnrollment(createDTO);
+            String reason = "Insufficient credit: Package '%s' has %.2f credits, class requires %.2f credits."
+                    .formatted(category.getName(), yogiPackage.getCredit(), yogaClass.getFeeOfCredit());
+            markEnrollmentAsCancelled(createDTO, reason, PaymentStatus.INSUFFICENT);
             throw new EnrollmentException(reason);
         }
 
         return yogiPackage;
     }
+
+    private void markEnrollmentAsCancelled(YogiYogaClassCreateDTO dto, String reason, PaymentStatus status) {
+        dto.setRemark(reason);
+        dto.setJoinedStatus(JoinedStatus.CANCEL);
+        dto.setPaymentStatus(status);
+        cancelEnrollment(dto);
+    }
+
 
     private void deductClassCredit(YogiPackage yogiPackage, double creditToDeduct) {
         yogiPackage.setCredit(yogiPackage.getCredit() - creditToDeduct);

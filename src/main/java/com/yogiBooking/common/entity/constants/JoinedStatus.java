@@ -8,8 +8,9 @@ import lombok.Getter;
 public enum JoinedStatus implements BaseEnum<Integer>{
     JOINING(0),
     PASS(1),
-    FAIL(2),
-    CANCEL(3);
+    WAITING(2),
+    FAIL(3),
+    CANCEL(4);
 
     private final int value;
 

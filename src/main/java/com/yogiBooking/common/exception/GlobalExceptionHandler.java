@@ -48,7 +48,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(BatchEnrollmentFailedException.class)
     public ResponseEntity<Map<String, Object>> handleBatchEnrollmentFailedException(BatchEnrollmentFailedException ex) {
         log.error("Batch Enrollment Failed: {}", ex.getMessage());
-        return buildErrorResponse(HttpStatus.BAD_REQUEST, ex.getMessage());
+        return buildErrorResponse(HttpStatus.BAD_REQUEST, ex.getErrorMessages().toString());
     }
 
     @ExceptionHandler(VerificationEmailFailedException.class)
